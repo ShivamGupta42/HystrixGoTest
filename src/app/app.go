@@ -8,6 +8,7 @@ import (
 )
 
 func SetUpRouter() {
+
 	router := mux.NewRouter()
 	router.Handle("/metrics", promhttp.Handler())
 	router.HandleFunc("/hysterix/test", SimpleHandler).Methods(http.MethodGet)

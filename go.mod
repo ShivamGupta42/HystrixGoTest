@@ -11,6 +11,7 @@ require (
 	github.com/DataDog/datadog-go v4.8.3+incompatible // indirect
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/cactus/go-statsd-client/statsd v0.0.0-20200623234511-94959e3146b2 // indirect
+	github.com/gjbae1212/prometheus-hystrix-go v1.0.3
 	github.com/prometheus/client_golang v1.12.1
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/smartystreets/goconvey v1.7.2 // indirect

@@ -29,7 +29,10 @@ func SimpleHandler(w http.ResponseWriter, r *http.Request) {
 func updateCounter(w http.ResponseWriter) {
 	v := atomic.AddInt64(&atomicCounter, 1)
 	opsProcessed.Inc()
-	hystrix.Flush()
+	if atomicCounter%1000 == 0 {
+		hystrix.Flush()
+	}
+
 	m := map[string]int64{"counter": v}
 	writeResponse(w, 200, m)
 }
