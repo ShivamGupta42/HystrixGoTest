@@ -31,8 +31,9 @@ const (
 )
 
 var (
-	gauges   = []string{metricCircuitOpen, metricTotalDuration, metricRunDuration, metricConcurrencyInUse}
-	counters = []string{metricSuccesses, metricAttempts, metricErrors, metricFailures,
+	maxConcurrentRequests = 1.0
+	gauges                = []string{metricCircuitOpen, metricTotalDuration, metricRunDuration, metricConcurrencyInUse}
+	counters              = []string{metricSuccesses, metricAttempts, metricErrors, metricFailures,
 		metricRejects, metricShortCircuits, metricTimeouts, metricFallbackSuccesses, metricFallbackFailures}
 )
 
@@ -203,7 +204,7 @@ func (c *PrometheusCollector) Update(r metricCollector.MetricResult) {
 	gauge.Set(r.RunDuration.Seconds())
 
 	gauge = c.gauges[metricConcurrencyInUse]
-	gauge.Set(r.ConcurrencyInUse)
+	gauge.Set(maxConcurrentRequests * r.ConcurrencyInUse)
 }
 
 func (c *PrometheusCollector) Reset() {
@@ -214,7 +215,7 @@ func (c *PrometheusCollector) Reset() {
 func NewHystrix() {
 	hystrix.ConfigureCommand("updateCounter", hystrix.CommandConfig{
 		Timeout:                1000,
-		MaxConcurrentRequests:  10,
+		MaxConcurrentRequests:  int(maxConcurrentRequests),
 		RequestVolumeThreshold: 10,
 		SleepWindow:            1000,
 		ErrorPercentThreshold:  30,
@@ -272,7 +273,7 @@ func NewPrometheusCollector(namespace string, labels map[string]string) func(str
 			}
 			gauge := prometheus.NewGauge(opts)
 			collector.gauges[metric] = gauge
-			prometheus.MustRegister(gauge)
+			prometheus.Register(gauge)
 		}
 		// make counters
 		for _, metric := range counters {
@@ -287,7 +288,7 @@ func NewPrometheusCollector(namespace string, labels map[string]string) func(str
 			}
 			counter := prometheus.NewCounter(opts)
 			collector.counters[metric] = counter
-			prometheus.MustRegister(counter)
+			prometheus.Register(counter)
 		}
 		return collector
 	}
