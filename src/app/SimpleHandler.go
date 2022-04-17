@@ -30,9 +30,10 @@ func SimpleHandler(w http.ResponseWriter, r *http.Request) {
 func updateCounter(w http.ResponseWriter) {
 	v := atomic.AddInt64(&atomicCounter, 1)
 	opsProcessed.Inc()
-
+	//time.After(500 * time.Millisecond)
 	m := map[string]int64{"counter": v}
 	writeResponse(w, 200, m)
+
 }
 
 func writeResponse(w http.ResponseWriter, code int, data interface{}) {

@@ -32,9 +32,10 @@ const (
 
 var (
 	maxConcurrentRequests = 1.0
-	gauges                = []string{metricCircuitOpen, metricTotalDuration, metricRunDuration, metricConcurrencyInUse}
+	gauges                = []string{metricCircuitOpen, metricTotalDuration, metricRunDuration}
 	counters              = []string{metricSuccesses, metricAttempts, metricErrors, metricFailures,
 		metricRejects, metricShortCircuits, metricTimeouts, metricFallbackSuccesses, metricFallbackFailures}
+	histograms = []string{metricConcurrencyInUse}
 )
 
 /*
@@ -141,10 +142,12 @@ var (
 
 type PrometheusCollector struct {
 	sync.RWMutex
-	namespace string
-	subsystem string
-	gauges    map[string]prometheus.Gauge
-	counters  map[string]prometheus.Counter
+	namespace  string
+	subsystem  string
+	gauges     map[string]prometheus.Gauge
+	counters   map[string]prometheus.Counter
+	summaries  map[string]prometheus.Summary
+	histograms map[string]prometheus.Histogram
 }
 
 func (c *PrometheusCollector) Update(r metricCollector.MetricResult) {
@@ -203,8 +206,8 @@ func (c *PrometheusCollector) Update(r metricCollector.MetricResult) {
 	gauge = c.gauges[metricRunDuration]
 	gauge.Set(r.RunDuration.Seconds())
 
-	gauge = c.gauges[metricConcurrencyInUse]
-	gauge.Set(maxConcurrentRequests * r.ConcurrencyInUse)
+	histogram := c.histograms[metricConcurrencyInUse]
+	histogram.Observe(maxConcurrentRequests * r.ConcurrencyInUse)
 }
 
 func (c *PrometheusCollector) Reset() {
@@ -254,10 +257,12 @@ func NewPrometheusCollector(namespace string, labels map[string]string) func(str
 		name = strings.Replace(name, ".", "_", -1)
 		name = strings.Replace(name, "-", "_", -1)
 		collector := &PrometheusCollector{
-			namespace: namespace,
-			subsystem: name,
-			gauges:    map[string]prometheus.Gauge{},
-			counters:  map[string]prometheus.Counter{},
+			namespace:  namespace,
+			subsystem:  name,
+			gauges:     map[string]prometheus.Gauge{},
+			counters:   map[string]prometheus.Counter{},
+			histograms: map[string]prometheus.Histogram{},
+			summaries:  map[string]prometheus.Summary{},
 		}
 
 		// make gauges
@@ -290,8 +295,36 @@ func NewPrometheusCollector(namespace string, labels map[string]string) func(str
 			collector.counters[metric] = counter
 			prometheus.Register(counter)
 		}
+
+		for _, metric := range histograms {
+			opts := prometheus.HistogramOpts{
+				Namespace:   collector.namespace,
+				Subsystem:   collector.subsystem,
+				Name:        metric,
+				Help:        "",
+				ConstLabels: nil,
+				Buckets:     generateHistBuckets(),
+			}
+
+			if labels != nil {
+				opts.ConstLabels = labels
+			}
+			histogram := prometheus.NewHistogram(opts)
+			collector.histograms[metric] = histogram
+			prometheus.Register(histogram)
+
+		}
 		return collector
 	}
+}
+
+func generateHistBuckets() []float64 {
+	bucketSize := maxConcurrentRequests / 10
+	var buckets []float64
+	for i := 1; i <= 10; i++ {
+		buckets = append(buckets, float64(i)*bucketSize)
+	}
+	return buckets
 }
 
 type StatsDConfig struct {
